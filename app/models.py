@@ -18,3 +18,14 @@ class FeatureValue(Base):
     feature_set = Column(String, nullable=False, index=True)
     features    = Column(JSON, nullable=False)
     created_at  = Column(DateTime, default=datetime.utcnow)
+
+class ModelVersion(Base):
+    __tablename__ = "model_versions"
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    name         = Column(String, nullable=False, index=True)
+    version      = Column(String, nullable=False)
+    stage        = Column(String, nullable=False, default="none")  # none | staging | production | archived
+    artifact_uri = Column(String, nullable=False)
+    metrics      = Column(JSON, default=dict)
+    params       = Column(JSON, default=dict)
+    created_at   = Column(DateTime, default=datetime.utcnow)

@@ -13,6 +13,7 @@ from app.feature_store import FeatureStore
 from app.experiment_tracker import ExperimentTracker
 from app.scheduler import FeaturePipeline
 from app.validator import FeatureValidationError
+from app.model_registry import ModelRegistry, _serialize
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
@@ -38,6 +39,9 @@ app = FastAPI(title="ML Platform", version="1.0.0", lifespan=lifespan)
 
 def get_fs(db: Session = Depends(get_db)) -> FeatureStore:
     return FeatureStore(db, _redis)
+
+def get_registry(db: Session = Depends(get_db)) -> ModelRegistry:
+    return ModelRegistry(db)
 
 # ── Feature store ──────────────────────────────────────────
 
@@ -142,6 +146,46 @@ def pipeline_backfill(req: BackfillReq):
         raise HTTPException(status_code=503, detail="Pipeline not initialised")
     result = _pipeline.backfill(req.start, req.end, req.entity_ids)
     return result
+
+
+# ── Model registry ────────────────────────────────────────
+
+class ModelRegisterReq(BaseModel):
+    name: str
+    version: str
+    artifact_uri: str
+    metrics: dict[str, Any] = {}
+    params: dict[str, Any] = {}
+
+class PromoteReq(BaseModel):
+    version: str
+    stage: str
+
+@app.post("/models/register", tags=["models"])
+def model_register(req: ModelRegisterReq, reg: ModelRegistry = Depends(get_registry)):
+    mv = reg.register(req.name, req.version, req.artifact_uri, req.metrics, req.params)
+    return _serialize(mv)
+
+@app.get("/models/{name}/versions", tags=["models"])
+def model_versions(name: str, reg: ModelRegistry = Depends(get_registry)):
+    return reg.list_versions(name)
+
+@app.post("/models/{name}/promote", tags=["models"])
+def model_promote(name: str, req: PromoteReq, reg: ModelRegistry = Depends(get_registry)):
+    try:
+        mv = reg.promote(name, req.version, req.stage)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return _serialize(mv)
+
+@app.get("/models/{name}/production", tags=["models"])
+def model_production(name: str, reg: ModelRegistry = Depends(get_registry)):
+    mv = reg.get_by_stage(name, "production")
+    if not mv:
+        raise HTTPException(status_code=404, detail=f"No production model for '{name}'")
+    return _serialize(mv)
 
 
 @app.get("/health")
