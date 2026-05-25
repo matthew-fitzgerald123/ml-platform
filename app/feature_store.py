@@ -52,16 +52,14 @@ class FeatureStore:
             return fv.features
         return None
 
-    def get_historical(self, entity_ids: list[str], feature_set: str) -> list[dict]:
-        rows = (
-            self.db.query(FeatureValue)
-            .filter(
-                FeatureValue.feature_set == feature_set,
-                FeatureValue.entity_id.in_(entity_ids)
-            )
-            .order_by(FeatureValue.created_at.desc())
-            .all()
-        )
+    def get_historical(self, entity_ids: list[str], feature_set: str, limit: int = 0) -> list[dict]:
+        q = self.db.query(FeatureValue).filter(FeatureValue.feature_set == feature_set)
+        if entity_ids:
+            q = q.filter(FeatureValue.entity_id.in_(entity_ids))
+        q = q.order_by(FeatureValue.created_at.desc())
+        if limit:
+            q = q.limit(limit)
+        rows = q.all()
         seen, result = set(), []
         for row in rows:
             if row.entity_id not in seen:

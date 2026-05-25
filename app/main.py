@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -5,18 +7,33 @@ from typing import Any
 import redis, os
 from dotenv import load_dotenv
 
-from app.database import get_db, engine
+from app.database import get_db, engine, SessionLocal
 from app.models import Base
 from app.feature_store import FeatureStore
 from app.experiment_tracker import ExperimentTracker
+from app.scheduler import FeaturePipeline
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="ML Platform", version="1.0.0")
-
 _redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
 tracker = ExperimentTracker()
+_pipeline: FeaturePipeline | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _pipeline
+    db = SessionLocal()
+    fs = FeatureStore(db, _redis)
+    _pipeline = FeaturePipeline(fs)
+    _pipeline.start()
+    yield
+    _pipeline.stop()
+    db.close()
+
+
+app = FastAPI(title="ML Platform", version="1.0.0", lifespan=lifespan)
 
 def get_fs(db: Session = Depends(get_db)) -> FeatureStore:
     return FeatureStore(db, _redis)
@@ -94,6 +111,34 @@ def best_run(name: str, metric: str = "accuracy", mode: str = "max"):
 @app.get("/experiments/{name}/runs", tags=["experiments"])
 def list_runs(name: str):
     return tracker.list_runs(name)
+
+# ── Feature pipeline ───────────────────────────────────────
+
+class BackfillReq(BaseModel):
+    start: datetime
+    end: datetime
+    entity_ids: list[str]
+
+@app.get("/pipeline/status", tags=["pipeline"])
+def pipeline_status():
+    if _pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialised")
+    return _pipeline.status()
+
+@app.post("/pipeline/run", tags=["pipeline"])
+async def pipeline_run():
+    if _pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialised")
+    await _pipeline._run_pipeline()
+    return {"status": "ok", "ran_at": datetime.utcnow().isoformat()}
+
+@app.post("/pipeline/backfill", tags=["pipeline"])
+def pipeline_backfill(req: BackfillReq):
+    if _pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialised")
+    result = _pipeline.backfill(req.start, req.end, req.entity_ids)
+    return result
+
 
 @app.get("/health")
 def health():
