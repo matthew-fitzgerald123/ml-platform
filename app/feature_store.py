@@ -4,6 +4,7 @@ import json
 import redis as redis_lib
 from sqlalchemy.orm import Session
 from app.models import FeatureSet, FeatureValue
+from app.validator import validate_features
 
 class FeatureStore:
     def __init__(self, db: Session, redis_client: redis_lib.Redis):
@@ -26,6 +27,9 @@ class FeatureStore:
         return [{"name": r.name, "schema": r.schema, "created_at": str(r.created_at)} for r in rows]
 
     def write(self, entity_id: str, feature_set: str, features: dict) -> FeatureValue:
+        fs_record = self.db.query(FeatureSet).filter_by(name=feature_set).first()
+        if fs_record and fs_record.schema:
+            validate_features(features, fs_record.schema)
         fv = FeatureValue(entity_id=entity_id, feature_set=feature_set, features=features)
         self.db.add(fv)
         self.db.commit()

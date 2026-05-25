@@ -12,6 +12,7 @@ from app.models import Base
 from app.feature_store import FeatureStore
 from app.experiment_tracker import ExperimentTracker
 from app.scheduler import FeaturePipeline
+from app.validator import FeatureValidationError
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
@@ -59,7 +60,10 @@ def list_feature_sets(fs: FeatureStore = Depends(get_fs)):
 
 @app.post("/features/write", tags=["features"])
 def write(req: WriteReq, fs: FeatureStore = Depends(get_fs)):
-    fs.write(req.entity_id, req.feature_set, req.features)
+    try:
+        fs.write(req.entity_id, req.feature_set, req.features)
+    except FeatureValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors)
     return {"status": "ok", "entity_id": req.entity_id}
 
 @app.get("/features/{feature_set}/history", tags=["features"])
