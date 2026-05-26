@@ -65,3 +65,92 @@ def test_best_run():
     r = client.get("/experiments/credit_risk_test/best?metric=auc_roc&mode=max")
     assert r.status_code == 200
     assert "run_id" in r.json()
+
+# ── Validation ─────────────────────────────────────────────
+
+def test_write_rejects_wrong_type():
+    client.post("/features/register", json={
+        "name": "typed_signals",
+        "schema": {"credit_score": "int:300:850", "label": "str"}
+    })
+    r = client.post("/features/write", json={
+        "entity_id": "v_user_001",
+        "feature_set": "typed_signals",
+        "features": {"credit_score": "not-an-int", "label": "ok"}
+    })
+    assert r.status_code == 422
+
+def test_write_rejects_out_of_range():
+    r = client.post("/features/write", json={
+        "entity_id": "v_user_002",
+        "feature_set": "typed_signals",
+        "features": {"credit_score": 900, "label": "ok"}
+    })
+    assert r.status_code == 422
+
+def test_write_rejects_null_field():
+    r = client.post("/features/write", json={
+        "entity_id": "v_user_003",
+        "feature_set": "typed_signals",
+        "features": {"credit_score": None, "label": "ok"}
+    })
+    assert r.status_code == 422
+
+def test_write_valid_passes_validation():
+    r = client.post("/features/write", json={
+        "entity_id": "v_user_004",
+        "feature_set": "typed_signals",
+        "features": {"credit_score": 720, "label": "prime"}
+    })
+    assert r.status_code == 200
+
+# ── Model registry ─────────────────────────────────────────
+
+def test_model_register_and_list():
+    r = client.post("/models/register", json={
+        "name": "credit-risk-model",
+        "version": "v1",
+        "artifact_uri": "s3://ml-platform/models/credit-risk/v1",
+        "metrics": {"accuracy": 0.91, "auc_roc": 0.94},
+        "params": {"n_estimators": 200, "max_depth": 6}
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["version"] == "v1"
+    assert body["stage"] == "none"
+
+    r = client.get("/models/credit-risk-model/versions")
+    assert r.status_code == 200
+    assert len(r.json()) >= 1
+
+def test_model_promote_to_production():
+    client.post("/models/register", json={
+        "name": "credit-risk-model",
+        "version": "v2",
+        "artifact_uri": "s3://ml-platform/models/credit-risk/v2",
+        "metrics": {"accuracy": 0.93}
+    })
+    r = client.post("/models/credit-risk-model/promote", json={"version": "v2", "stage": "production"})
+    assert r.status_code == 200
+    assert r.json()["stage"] == "production"
+
+    r = client.get("/models/credit-risk-model/production")
+    assert r.status_code == 200
+    assert r.json()["version"] == "v2"
+
+def test_model_promote_invalid_stage():
+    r = client.post("/models/credit-risk-model/promote", json={"version": "v1", "stage": "released"})
+    assert r.status_code == 422
+
+def test_model_production_404_for_unknown():
+    r = client.get("/models/nonexistent-model/production")
+    assert r.status_code == 404
+
+# ── Pipeline ───────────────────────────────────────────────
+
+def test_pipeline_status():
+    r = client.get("/pipeline/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert "running" in body
+    assert "run_count" in body
