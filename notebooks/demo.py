@@ -72,6 +72,34 @@ print(f"   run_id:  {best['run_id']}")
 print(f"   params:  {best['params']}")
 print(f"   metrics: {best['metrics']}")
 
-print(f"\nMLflow UI → http://localhost:5001")
-print(f"API docs  → http://localhost:8080/docs")
+print("\n6. Registering model versions and promoting to production...")
+for version, acc in [("v1", 0.87), ("v2", 0.91), ("v3", 0.93)]:
+    post("/models/register", {
+        "name": "credit-risk-model",
+        "version": version,
+        "artifact_uri": f"mlruns/credit_risk_demo/{version}/artifacts/model",
+        "metrics": {"accuracy": acc, "auc_roc": round(acc + 0.02, 3)},
+        "params": {"C": 1.0 if version == "v1" else 10.0},
+    })
+    print(f"   registered {version} (accuracy={acc})")
+
+post("/models/credit-risk-model/promote", {"version": "v3", "stage": "production"})
+prod = get("/models/credit-risk-model/production")
+print(f"   production -> {prod['version']}  stage={prod['stage']}")
+
+print("\n7. Feature pipeline status:")
+status = get("/pipeline/status")
+print(f"   running={status['running']}  run_count={status['run_count']}  next_run={status['next_run']}")
+
+print("\n8. Validation rejection example:")
+r = requests.post(f"{BASE}/features/write", json={
+    "entity_id": "bad_entity",
+    "feature_set": "credit_signals",
+    "features": {"debt_to_income": "not-a-float", "credit_score": None, "months_employed": 24},
+})
+if r.status_code == 422:
+    print(f"   422 as expected: {r.json()['detail']}")
+
+print(f"\nMLflow UI -> http://localhost:5001")
+print(f"API docs  -> http://localhost:8080/docs")
 print("\nDone.")
