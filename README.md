@@ -3,7 +3,7 @@
 [![CI](https://github.com/matthew-fitzgerald123/ml-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/matthew-fitzgerald123/ml-platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 
-A production-ready ML platform exposing a schema-validated feature store, MLflow experiment tracking, a model registry with stage promotion, and a scheduled feature pipeline — all through a single FastAPI service backed by PostgreSQL and Redis.
+A production-ready ML platform exposing a schema-validated feature store, MLflow experiment tracking, a model registry with stage promotion, and a scheduled feature pipeline, all through a single FastAPI service backed by PostgreSQL and Redis.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ flowchart TD
         ML[MLflow\nExperiment Store]
     end
 
-    subgraph Infra["AWS — Terraform"]
+    subgraph Infra["AWS / Terraform"]
         RDS[RDS Postgres 16\ndb.t3.micro]
         EC[ElastiCache Redis 7\ncache.t3.micro]
     end
@@ -62,8 +62,8 @@ flowchart TD
 | Experiment tracking | MLflow |
 | Scheduled pipeline | APScheduler (AsyncIOScheduler, 15-min cron) |
 | Data validation | Schema-typed feature validator (type + null + range) |
-| Infra | Terraform — VPC, RDS, ElastiCache |
-| CI | GitHub Actions — pytest + terraform validate |
+| Infra | Terraform: VPC, RDS, ElastiCache |
+| CI | GitHub Actions: pytest + terraform validate |
 
 ## Setup
 

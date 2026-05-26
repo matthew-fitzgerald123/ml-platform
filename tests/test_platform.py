@@ -2,13 +2,14 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
 
-def test_health():
+# ── Feature store ──────────────────────────────────────────
+
+def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
 
-def test_register_feature_set():
+def test_register_feature_set(client):
     r = client.post("/features/register", json={
         "name": "financial_signals",
         "schema": {"debt_to_income": "float", "credit_score": "int", "months_employed": "int"}
@@ -16,7 +17,7 @@ def test_register_feature_set():
     assert r.status_code == 200
     assert r.json()["name"] == "financial_signals"
 
-def test_write_and_read_features():
+def test_write_and_read_features(client):
     client.post("/features/write", json={
         "entity_id": "user_test_001",
         "feature_set": "financial_signals",
@@ -28,7 +29,7 @@ def test_write_and_read_features():
     assert data["credit_score"] == 712
     assert data["debt_to_income"] == pytest.approx(0.38, rel=1e-3)
 
-def test_get_historical_features():
+def test_get_historical_features(client):
     for i in range(3):
         client.post("/features/write", json={
             "entity_id": f"hist_user_{i}",
@@ -39,11 +40,13 @@ def test_get_historical_features():
     assert r.status_code == 200
     assert len(r.json()) == 3
 
-def test_missing_features_returns_404():
+def test_missing_features_returns_404(client):
     r = client.get("/features/financial_signals/nonexistent_entity")
     assert r.status_code == 404
 
-def test_full_run_lifecycle():
+# ── Experiment tracking ────────────────────────────────────
+
+def test_full_run_lifecycle(client):
     r = client.post("/experiments/run", json={
         "experiment": "credit_risk_test",
         "run_name": "lr_baseline",
@@ -61,14 +64,14 @@ def test_full_run_lifecycle():
     r = client.post(f"/experiments/finish/{run_id}")
     assert r.status_code == 200
 
-def test_best_run():
+def test_best_run(client):
     r = client.get("/experiments/credit_risk_test/best?metric=auc_roc&mode=max")
     assert r.status_code == 200
     assert "run_id" in r.json()
 
 # ── Validation ─────────────────────────────────────────────
 
-def test_write_rejects_wrong_type():
+def test_write_rejects_wrong_type(client):
     client.post("/features/register", json={
         "name": "typed_signals",
         "schema": {"credit_score": "int:300:850", "label": "str"}
@@ -80,7 +83,7 @@ def test_write_rejects_wrong_type():
     })
     assert r.status_code == 422
 
-def test_write_rejects_out_of_range():
+def test_write_rejects_out_of_range(client):
     r = client.post("/features/write", json={
         "entity_id": "v_user_002",
         "feature_set": "typed_signals",
@@ -88,7 +91,7 @@ def test_write_rejects_out_of_range():
     })
     assert r.status_code == 422
 
-def test_write_rejects_null_field():
+def test_write_rejects_null_field(client):
     r = client.post("/features/write", json={
         "entity_id": "v_user_003",
         "feature_set": "typed_signals",
@@ -96,7 +99,7 @@ def test_write_rejects_null_field():
     })
     assert r.status_code == 422
 
-def test_write_valid_passes_validation():
+def test_write_valid_passes_validation(client):
     r = client.post("/features/write", json={
         "entity_id": "v_user_004",
         "feature_set": "typed_signals",
@@ -106,7 +109,7 @@ def test_write_valid_passes_validation():
 
 # ── Model registry ─────────────────────────────────────────
 
-def test_model_register_and_list():
+def test_model_register_and_list(client):
     r = client.post("/models/register", json={
         "name": "credit-risk-model",
         "version": "v1",
@@ -123,7 +126,7 @@ def test_model_register_and_list():
     assert r.status_code == 200
     assert len(r.json()) >= 1
 
-def test_model_promote_to_production():
+def test_model_promote_to_production(client):
     client.post("/models/register", json={
         "name": "credit-risk-model",
         "version": "v2",
@@ -138,17 +141,17 @@ def test_model_promote_to_production():
     assert r.status_code == 200
     assert r.json()["version"] == "v2"
 
-def test_model_promote_invalid_stage():
+def test_model_promote_invalid_stage(client):
     r = client.post("/models/credit-risk-model/promote", json={"version": "v1", "stage": "released"})
     assert r.status_code == 422
 
-def test_model_production_404_for_unknown():
+def test_model_production_404_for_unknown(client):
     r = client.get("/models/nonexistent-model/production")
     assert r.status_code == 404
 
 # ── Pipeline ───────────────────────────────────────────────
 
-def test_pipeline_status():
+def test_pipeline_status(client):
     r = client.get("/pipeline/status")
     assert r.status_code == 200
     body = r.json()

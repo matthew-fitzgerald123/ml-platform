@@ -67,7 +67,7 @@ class FeaturePipeline:
         }
 
     async def _run_pipeline(self):
-        """Called by the scheduler — fetch all entities and recompute derived features."""
+        """Called by the scheduler: fetch all entities and recompute derived features."""
         log.info("Feature pipeline run starting")
         try:
             feature_sets = self.fs.list_feature_sets()
@@ -92,7 +92,7 @@ class FeaturePipeline:
 
             self._last_run = datetime.now(timezone.utc)
             self._run_count += 1
-            log.info("Feature pipeline complete — %d entities updated", updated)
+            log.info("Feature pipeline complete: %d entities updated", updated)
         except Exception:
             log.exception("Feature pipeline run failed")
 

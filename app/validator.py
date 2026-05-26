@@ -29,7 +29,7 @@ def validate_features(features: dict, schema: dict[str, str]) -> None:
         expected = _TYPE_MAP.get(type_name)
 
         if expected is None:
-            continue  # unrecognised type — skip rather than block
+            continue  # unrecognised type, skip rather than block
 
         if not isinstance(value, expected):
             errors.append(f"'{key}' expected {type_name}, got {type(value).__name__}")

@@ -20,7 +20,7 @@ class FeatureValue(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
 
 class ModelVersion(Base):
-    __tablename__ = "model_versions"
+    __tablename__ = "registry_model_versions"
     id           = Column(Integer, primary_key=True, autoincrement=True)
     name         = Column(String, nullable=False, index=True)
     version      = Column(String, nullable=False)
