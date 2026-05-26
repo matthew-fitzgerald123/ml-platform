@@ -1,0 +1,7 @@
+aws_region        = "us-east-1"
+project           = "ml-platform"
+db_instance_class = "db.t3.micro"
+db_name           = "mlplatform"
+db_username       = "mlplatform"
+db_password       = "change-me-before-apply"
+redis_node_type   = "cache.t3.micro"
