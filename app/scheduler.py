@@ -8,7 +8,7 @@ computation over a historical date range.
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -38,7 +38,7 @@ class FeaturePipeline:
     def __init__(self, feature_store: FeatureStore):
         self.fs = feature_store
         self._scheduler = AsyncIOScheduler()
-        self._last_run: datetime | None = None
+        self._last_run: Optional[datetime] = None
         self._run_count = 0
 
     def start(self):

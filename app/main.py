@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Any
+from typing import Any, Optional
 import redis, os
 from dotenv import load_dotenv
 
@@ -20,7 +20,7 @@ Base.metadata.create_all(bind=engine)
 
 _redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
 tracker = ExperimentTracker()
-_pipeline: FeaturePipeline | None = None
+_pipeline: Optional[FeaturePipeline] = None
 
 
 @asynccontextmanager
