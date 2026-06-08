@@ -166,6 +166,10 @@ def model_register(req: ModelRegisterReq, reg: ModelRegistry = Depends(get_regis
     mv = reg.register(req.name, req.version, req.artifact_uri, req.metrics, req.params)
     return _serialize(mv)
 
+@app.get("/models", tags=["models"])
+def list_models(reg: ModelRegistry = Depends(get_registry)):
+    return reg.list_names()
+
 @app.get("/models/{name}/versions", tags=["models"])
 def model_versions(name: str, reg: ModelRegistry = Depends(get_registry)):
     return reg.list_versions(name)

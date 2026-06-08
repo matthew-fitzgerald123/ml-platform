@@ -37,6 +37,11 @@ class ModelRegistry:
         self.db.refresh(mv)
         return mv
 
+    def list_names(self) -> list[str]:
+        from sqlalchemy import distinct
+        rows = self.db.query(distinct(ModelVersion.name)).order_by(ModelVersion.name).all()
+        return [r[0] for r in rows]
+
     def list_versions(self, name: str) -> list[dict]:
         rows = (
             self.db.query(ModelVersion)
