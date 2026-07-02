@@ -67,6 +67,8 @@ flowchart TD
 
 ## Setup
 
+Requires Python 3.11, PostgreSQL, and Redis running locally.
+
 ```bash
 createdb mlplatform
 make install
