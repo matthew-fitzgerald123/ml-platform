@@ -82,6 +82,7 @@ make serve      # FastAPI at http://localhost:8080
 make mlflow-ui  # MLflow UI (separate terminal)
 make demo       # end-to-end demo
 make test       # run test suite
+make lint       # run linter
 ```
 
 ## API Reference
